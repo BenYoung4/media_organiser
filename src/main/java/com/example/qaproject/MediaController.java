@@ -10,7 +10,10 @@ import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.scene.Node;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -30,6 +33,7 @@ import javafx.stage.Stage;
 import javafx.util.Duration;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.util.ResourceBundle;
 import java.util.concurrent.Callable;
@@ -77,6 +81,9 @@ public class MediaController implements Initializable {
     @FXML
     private Button openFileButton;
 
+    @FXML
+    private Button openPlaylist;
+
     private boolean isPlaying = true;
     private boolean isMuted = true;
     private boolean videoEnd = false;
@@ -100,21 +107,6 @@ public class MediaController implements Initializable {
         playerVideo = new MediaPlayer(mediaVideo);
         viewMedia.setMediaPlayer(playerVideo);
 
-        Image playIcon = new Image(new File("src/main/resources/icons/play.png").toURI().toString());
-        playButton = new ImageView(playIcon);
-        playButton.setFitHeight(iconSize);
-        playButton.setFitWidth(iconSize);
-
-        Image pauseIcon = new Image(new File("src/main/resources/icons/pause.png").toURI().toString());
-        pauseButton = new ImageView(pauseIcon);
-        pauseButton.setFitHeight(iconSize);
-        pauseButton.setFitWidth(iconSize);
-
-        Image restartIcon = new Image(new File("src/main/resources/icons/restart.png").toURI().toString());
-        restartButton = new ImageView(restartIcon);
-        restartButton.setFitHeight(iconSize);
-        restartButton.setFitWidth(iconSize);
-
         Image fullscreenIcon = new Image(new File("src/main/resources/icons/fullscreen.png").toURI().toString());
         fullScreenButton = new ImageView(fullscreenIcon);
         fullScreenButton.setFitHeight(iconSize);
@@ -129,6 +121,21 @@ public class MediaController implements Initializable {
         exitFullScreenButton = new ImageView(exitFullScreenIcon);
         exitFullScreenButton.setFitHeight(iconSize);
         exitFullScreenButton.setFitWidth(iconSize);
+
+        Image playIcon = new Image(new File("src/main/resources/icons/play.png").toURI().toString());
+        playButton = new ImageView(playIcon);
+        playButton.setFitHeight(iconSize);
+        playButton.setFitWidth(iconSize);
+
+        Image pauseIcon = new Image(new File("src/main/resources/icons/pause.png").toURI().toString());
+        pauseButton = new ImageView(pauseIcon);
+        pauseButton.setFitHeight(iconSize);
+        pauseButton.setFitWidth(iconSize);
+
+        Image restartIcon = new Image(new File("src/main/resources/icons/restart.png").toURI().toString());
+        restartButton = new ImageView(restartIcon);
+        restartButton.setFitHeight(iconSize);
+        restartButton.setFitWidth(iconSize);
 
         Image volumeIcon = new Image(new File("src/main/resources/icons/volume.png").toURI().toString());
         volumeButton = new ImageView(volumeIcon);
@@ -158,6 +165,43 @@ public class MediaController implements Initializable {
             }
         });
 
+//        openPlaylist.setOnAction(new EventHandler<ActionEvent>() {
+//                                         public void handle(ActionEvent event) {
+//                                             Parent root;
+//                                             try {
+//                                                 root = FXMLLoader.load(getClass().getClassLoader().getResource("E:\\QAProject\\src\\main\\resources\\com\\example\\qaproject\\playlist.fxml"));
+//                                                 Stage stage = new Stage();
+//                                                 stage.setTitle("Make a playlist");
+//                                                 stage.setScene(new Scene(root, 450, 450));
+//                                                 stage.show();
+//                                                 ((Node)(event.getSource())).getScene().getWindow().hide();
+//                                             }
+//                                             catch (IOException e) {
+//                                                 e.printStackTrace();
+//                                             }
+//                                         }
+//                                     });
+
+        volumeControls.getChildren().remove(volumeBar);
+
+        playerVideo.volumeProperty().bindBidirectional(volumeBar.valueProperty());
+
+        bindCurrentTime();
+
+        volumeBar.valueProperty().addListener(new InvalidationListener() {
+            @Override
+            public void invalidated(Observable observable) {
+                playerVideo.setVolume(volumeBar.getValue());
+                if (playerVideo.getVolume() != 0.0) {
+                    volumeNumber.setGraphic(volumeButton);
+                    isMuted = false;
+                } else {
+                    volumeNumber.setGraphic(muteButton);
+                    isMuted = true;
+                }
+            }
+        });
+
         playPauseButton.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent actionEvent) {
@@ -176,26 +220,6 @@ public class MediaController implements Initializable {
                     pressPlay.setGraphic(pauseButton);
                     playerVideo.play();
                     isPlaying = true;
-                }
-            }
-        });
-
-        volumeControls.getChildren().remove(volumeBar);
-
-        playerVideo.volumeProperty().bindBidirectional(volumeBar.valueProperty());
-
-        bindCurrentTime();
-
-        volumeBar.valueProperty().addListener(new InvalidationListener() {
-            @Override
-            public void invalidated(Observable observable) {
-                playerVideo.setVolume(volumeBar.getValue());
-                if (playerVideo.getVolume() != 0.0) {
-                    volumeNumber.setGraphic(volumeButton);
-                    isMuted = false;
-                } else {
-                    volumeNumber.setGraphic(muteButton);
-                    isMuted = true;
                 }
             }
         });
@@ -242,6 +266,18 @@ public class MediaController implements Initializable {
             @Override
             public void handle(MouseEvent mouseEvent) {
                 volumeControls.getChildren().remove(volumeBar);
+            }
+        });
+
+        playerVideo.setOnEndOfMedia(new Runnable() {
+            @Override
+            public void run() {
+                playPauseButton.setGraphic(restartButton);
+                videoEnd = true;
+                if (!currentTime.textProperty().equals(totalTime.textProperty())) {
+                    currentTime.textProperty().unbind();
+                    currentTime.setText(getTime(playerVideo.getTotalDuration()) + " / ");
+                }
             }
         });
 
@@ -307,6 +343,7 @@ public class MediaController implements Initializable {
                 atEndOfVideo(currentTime.getText(), totalTime.getText());
             }
         });
+
         playerVideo.currentTimeProperty().addListener(new ChangeListener<Duration>() {
             @Override
             public void changed(ObservableValue<? extends Duration> observableValue, Duration originalTime, Duration newTime) {
@@ -315,18 +352,6 @@ public class MediaController implements Initializable {
                     progressBar.setValue(newTime.toSeconds());
                 }
                 atEndOfVideo(currentTime.getText(), totalTime.getText());
-            }
-        });
-
-        playerVideo.setOnEndOfMedia(new Runnable() {
-            @Override
-            public void run() {
-                playPauseButton.setGraphic(restartButton);
-                videoEnd = true;
-                if (!currentTime.textProperty().equals(totalTime.textProperty())) {
-                    currentTime.textProperty().unbind();
-                    currentTime.setText(getTime(playerVideo.getTotalDuration()) + " / ");
-                }
             }
         });
     }
